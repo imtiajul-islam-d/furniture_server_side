@@ -20,6 +20,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const userCollection = client.db("furniture").collection("users");
+    const productCollection = client.db("furniture").collection("products");
     // ========================================================================== USER start ================================================
       // get all users
       app.get("/users", async (req, res) => {
@@ -31,7 +32,7 @@ async function run() {
     app.get('/user/specification', async(req, res) => {
       const email = req.query.email;
       const query = {email}
-      const result = await userCollection.find(query).toArray()
+      const result = await userCollection.find(query).project({acc:1}).toArray()
       res.send(result)
     })
     // post user
@@ -41,6 +42,13 @@ async function run() {
       res.send(result)
     });
   // ================================================================================ USER end ===================================================
+  // ===================================================================== PRODUCT start =========================================================
+    app.post('/products', async(req, res) => {
+      const product = req.body;
+      const result = await productCollection.insertOne(product);
+      res.send(result)
+    })
+  // ===================================================================== PRODUCT end ===========================================================
   } finally {
   }
 }
