@@ -104,19 +104,30 @@ async function run() {
     });
     // get sellers information only
     app.get("/users/sellers", verifyJWT, verifyAdmin, async (req, res) => {
-      const query = {acc: 'Seller'};
+      const query = { acc: "Seller" };
       const result = await userCollection.find(query).toArray();
       res.send(result);
     });
     // delete sellers information
-    app.delete("/users/info/:email", verifyJWT, verifyAdmin, async (req, res) => {
-      const email = req.params.email;
-      console.log(email);
-      const filter = { email: email };
-      const result = await userCollection.deleteOne(filter);
-      // delete sellers products
-      const query = {sellerEmail:email}
-      const product = await productCollection.deleteMany(query)
+    app.delete(
+      "/users/info/:email",
+      verifyJWT,
+      verifyAdmin,
+      async (req, res) => {
+        const email = req.params.email;
+        console.log(email);
+        const filter = { email: email };
+        const result = await userCollection.deleteOne(filter);
+        // delete sellers products
+        const query = { sellerEmail: email };
+        const product = await productCollection.deleteMany(query);
+        res.send(result);
+      }
+    );
+    // get buyers information only
+    app.get("/users/buyers", verifyJWT, verifyAdmin, async (req, res) => {
+      const query = { acc: "User" };
+      const result = await userCollection.find(query).toArray();
       res.send(result);
     });
     // ================================================================================ USER end ===================================================
@@ -142,22 +153,27 @@ async function run() {
       res.send(result);
     });
     // update product advertise status
-    app.patch("/product/advertise", verifyJWT, verifySeller, async (req, res) => {
-      const id = req.query.id;
-      const filter = {_id: ObjectId(id)};
-      const options = { upsert: true };
-      const updatedDocument = {
-        $set: {
-          ad: true,
-        },
-      };
-      const result = await productCollection.updateOne(
-        filter,
-        updatedDocument,
-        options
-      );
-      res.send(result);
-    });
+    app.patch(
+      "/product/advertise",
+      verifyJWT,
+      verifySeller,
+      async (req, res) => {
+        const id = req.query.id;
+        const filter = { _id: ObjectId(id) };
+        const options = { upsert: true };
+        const updatedDocument = {
+          $set: {
+            ad: true,
+          },
+        };
+        const result = await productCollection.updateOne(
+          filter,
+          updatedDocument,
+          options
+        );
+        res.send(result);
+      }
+    );
     // ===================================================================== PRODUCT end ===========================================================
   } finally {
   }
