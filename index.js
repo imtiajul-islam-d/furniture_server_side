@@ -130,6 +130,21 @@ async function run() {
       const result = await userCollection.find(query).toArray();
       res.send(result);
     });
+    // delete buyers information
+    app.delete(
+      "/users/info/:email",
+      verifyJWT,
+      verifyAdmin,
+      async (req, res) => {
+        const email = req.params.email;
+        const filter = { email: email };
+        const result = await userCollection.deleteOne(filter);
+        // delete buyers products
+        // const query = { sellerEmail: email };
+        // const product = await productCollection.deleteMany(query);
+        res.send(result);
+      }
+    );
     // ================================================================================ USER end ===================================================
     // ===================================================================== PRODUCT start =========================================================
     // get user based product
