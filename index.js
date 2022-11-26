@@ -1,5 +1,5 @@
 const express = require("express");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
@@ -104,9 +104,24 @@ async function run() {
     });
     // ================================================================================ USER end ===================================================
     // ===================================================================== PRODUCT start =========================================================
-    app.post("/products", verifyJWT,  verifySeller, async (req, res) => {
+    // get user based product
+    app.get("/products", verifyJWT, verifySeller, async (req, res) => {
+      const email = req.query.email;
+      const query = { sellerEmail: email };
+      const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
+    // post a product
+    app.post("/products", verifyJWT, verifySeller, async (req, res) => {
       const product = req.body;
       const result = await productCollection.insertOne(product);
+      res.send(result);
+    });
+    // delete a product
+    app.delete("/products/:id", verifyJWT, verifySeller, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await productCollection.deleteOne(filter);
       res.send(result);
     });
     // ===================================================================== PRODUCT end ===========================================================
