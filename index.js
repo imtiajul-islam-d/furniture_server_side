@@ -2,12 +2,28 @@ const express = require("express");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const cors = require("cors");
 require("dotenv").config();
+const jwt = require("jsonwebtoken");
 const port = process.env.PORT || 5000;
 const app = express();
 
 // middleware
 app.use(cors());
 app.use(express.json());
+// verify jwt
+function verifyJWT(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+  const token = authHeader.split(" ")[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+    if (err) {
+      return res.status(403).send({ message: "forbidden access" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+}
 // middleware end
 // mongodb start
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ibovumw.mongodb.net/?retryWrites=true&w=majority`;
@@ -21,34 +37,79 @@ async function run() {
   try {
     const userCollection = client.db("furniture").collection("users");
     const productCollection = client.db("furniture").collection("products");
-    // ========================================================================== USER start ================================================
-      // get all users
-      app.get("/users", async (req, res) => {
-        const query = {};
-        const result = await userCollection.find(query).toArray()
-        res.send(result)
-      });
-    // get user specification
-    app.get('/user/specification', async(req, res) => {
+    // =============================================================================== Verify admin ======================================
+    const verifyAdmin = async (req, res, next) => {
+      const decodedEmail = req.decoded.email;
+      const queryUser = { email: decodedEmail };
+      const user = await userCollection.findOne(queryUser);
+      if (user.acc !== "Admin") {
+        return res.send({
+          message: "Forbidden access!!",
+        });
+      }
+      next();
+    };
+    // =============================================================================== Verify seller ======================================
+    const verifySeller = async (req, res, next) => {
+      const decodedEmail = req.decoded.email;
+      const queryUser = { email: decodedEmail };
+      const user = await userCollection.findOne(queryUser);
+      if (user.acc !== "Seller") {
+        return res.send({
+          message: "Forbidden access !!",
+        });
+      }
+      next();
+    };
+    // ================================================================================ api for JWT token=======================
+    app.get("/jwt", async (req, res) => {
+      // take the email address from user
       const email = req.query.email;
-      const query = {email}
-      const result = await userCollection.find(query).project({acc:1}).toArray()
-      res.send(result)
-    })
+      // check the user, is it in our database or not
+      // make a query to find the user in our database
+      const quey = { email: email };
+      const user = await userCollection.findOne(quey);
+      // if user found then, cook a token for the user, demo is in the below
+      if (user) {
+        const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, {
+          expiresIn: "24h",
+        });
+        return res.send({ accessToken: token });
+      }
+      // if no user found, send him/ her the status '403' with a blank access token
+      res.status(403).send({ accessToken: "" });
+    });
+    // ========================================================================== USER start ================================================
+    // get all users
+    app.get("/users", async (req, res) => {
+      const query = {};
+      const result = await userCollection.find(query).toArray();
+      res.send(result);
+    });
+    // get user specification
+    app.get("/user/specification", async (req, res) => {
+      const email = req.query.email;
+      const query = { email };
+      const result = await userCollection
+        .find(query)
+        .project({ acc: 1 })
+        .toArray();
+      res.send(result);
+    });
     // post user
     app.post("/users", async (req, res) => {
       const user = req.body;
       const result = await userCollection.insertOne(user);
-      res.send(result)
+      res.send(result);
     });
-  // ================================================================================ USER end ===================================================
-  // ===================================================================== PRODUCT start =========================================================
-    app.post('/products', async(req, res) => {
+    // ================================================================================ USER end ===================================================
+    // ===================================================================== PRODUCT start =========================================================
+    app.post("/products", verifyJWT,  verifySeller, async (req, res) => {
       const product = req.body;
       const result = await productCollection.insertOne(product);
-      res.send(result)
-    })
-  // ===================================================================== PRODUCT end ===========================================================
+      res.send(result);
+    });
+    // ===================================================================== PRODUCT end ===========================================================
   } finally {
   }
 }
