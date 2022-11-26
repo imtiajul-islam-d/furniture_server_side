@@ -145,8 +145,40 @@ async function run() {
         res.send(result);
       }
     );
+    // update user/buyer verification
+    app.patch(
+      "/user/verification",
+      verifyJWT,
+      verifyAdmin,
+      async (req, res) => {
+        const email = req.query.email;
+        const filter = {email};
+        const options = { upsert: true };
+        const updatedDocument = {
+          $set: {
+            verified: true,
+          },
+        };
+        const result = await userCollection.updateOne(
+          filter,
+          updatedDocument,
+          options
+        );
+        // update product verification status
+        const productFinder = {sellerEmail: email}
+        const product = await productCollection.updateMany(productFinder, updatedDocument)
+        res.send(result);
+      }
+    );
     // ================================================================================ USER end ===================================================
     // ===================================================================== PRODUCT start =========================================================
+    // get category based product
+    app.get('/category/:id', verifyJWT, async (req, res) => {
+      const id = parseInt(req.params.id);
+      const query = {categoryId: id, sold: false}
+      const result = await productCollection.find(query).toArray()
+      res.send(result)
+    })
     // get user based product
     app.get("/products", verifyJWT, verifySeller, async (req, res) => {
       const email = req.query.email;
