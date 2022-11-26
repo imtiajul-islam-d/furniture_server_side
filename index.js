@@ -43,7 +43,7 @@ async function run() {
       const queryUser = { email: decodedEmail };
       const user = await userCollection.findOne(queryUser);
       if (user.acc !== "Admin") {
-        return res.send({
+        return res.status(403).send({
           message: "Forbidden access!!",
         });
       }
@@ -100,6 +100,23 @@ async function run() {
     app.post("/users", async (req, res) => {
       const user = req.body;
       const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+    // get sellers information only
+    app.get("/users/sellers", verifyJWT, verifyAdmin, async (req, res) => {
+      const query = {acc: 'Seller'};
+      const result = await userCollection.find(query).toArray();
+      res.send(result);
+    });
+    // delete sellers information
+    app.delete("/users/info/:email", verifyJWT, verifyAdmin, async (req, res) => {
+      const email = req.params.email;
+      console.log(email);
+      const filter = { email: email };
+      const result = await userCollection.deleteOne(filter);
+      // delete sellers products
+      const query = {sellerEmail:email}
+      const product = await productCollection.deleteMany(query)
       res.send(result);
     });
     // ================================================================================ USER end ===================================================
