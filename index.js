@@ -124,6 +124,23 @@ async function run() {
       const result = await productCollection.deleteOne(filter);
       res.send(result);
     });
+    // update product advertise status
+    app.patch("/product/advertise", verifyJWT, verifySeller, async (req, res) => {
+      const id = req.query.id;
+      const filter = {_id: ObjectId(id)};
+      const options = { upsert: true };
+      const updatedDocument = {
+        $set: {
+          ad: true,
+        },
+      };
+      const result = await productCollection.updateOne(
+        filter,
+        updatedDocument,
+        options
+      );
+      res.send(result);
+    });
     // ===================================================================== PRODUCT end ===========================================================
   } finally {
   }
