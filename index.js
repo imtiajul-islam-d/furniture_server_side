@@ -37,6 +37,7 @@ async function run() {
   try {
     const userCollection = client.db("furniture").collection("users");
     const productCollection = client.db("furniture").collection("products");
+    const bookingCollection = client.db('furniture').collection('booking')
     // =============================================================================== Verify admin ======================================
     const verifyAdmin = async (req, res, next) => {
       const decodedEmail = req.decoded.email;
@@ -96,6 +97,16 @@ async function run() {
         .toArray();
       res.send(result);
     });
+    // find user verification
+    app.get("/user/verification", async (req, res) => {
+      const email = req.query.email;
+      const query = { email };
+      const result = await userCollection
+        .find(query)
+        .project({ verified: 1 })
+        .toArray();
+      res.send(result);
+    });
     // post user
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -115,7 +126,6 @@ async function run() {
       verifyAdmin,
       async (req, res) => {
         const email = req.params.email;
-        console.log(email);
         const filter = { email: email };
         const result = await userCollection.deleteOne(filter);
         // delete sellers products
@@ -222,6 +232,34 @@ async function run() {
       }
     );
     // ===================================================================== PRODUCT end ===========================================================
+    // ===================================================================== Product booking start =======================================================
+    app.post("/product/bookings", verifyJWT, async (req, res) => {
+      const booking = req.body;
+      const id = booking.productId;
+      const query = {
+        productId: booking.productId
+      };
+      const alreadyBooked = await bookingCollection.find(query).toArray();
+      if (alreadyBooked.length) {
+        const message = `This product already been booked`;
+        return res.send({
+          acknowledged: false,
+          message: message,
+        });
+      }
+      const result = await bookingCollection.insertOne(booking);
+      // 
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDocument = {
+        $set: {
+          booked: true,
+        }
+      };
+      const mainCollection = await productCollection.updateOne(filter, updatedDocument, options)
+      res.send(result);
+    });
+     // ===================================================================== Product booking end =======================================================
   } finally {
   }
 }
