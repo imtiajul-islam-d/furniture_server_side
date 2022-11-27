@@ -182,6 +182,12 @@ async function run() {
     );
     // ================================================================================ USER end ===================================================
     // ===================================================================== PRODUCT start =========================================================
+    // get advertised product only
+    app.get('/products/advertised', async(req, res) => {
+      const query = {sold:false, ad:true}
+      const result = await productCollection.find(query).toArray()
+      res.send(result)
+    })
     // get category based product
     app.get('/category/:id', verifyJWT, async (req, res) => {
       const id = parseInt(req.params.id);
