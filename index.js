@@ -217,26 +217,29 @@ async function run() {
       const result = await productCollection.find(query).toArray();
       res.send(result);
     });
-    // reporting api
-    // payment api start
-    // payment api
-    // app.post("/create-payment-intent", async (req, res) => {
-    //   const booking = req.body;
-    //   const price = booking.price;
-    //   const amount = price * 100;
-    //   const paymentIntent = await stripe.paymentIntents.create({
-    //     currency: "usd",
-    //     amount: amount,
-    //     payment_method_types: ["card"],
-    //   });
-    //   res.send({
-    //     clientSecret: paymentIntent.client_secret,
-    //   });
-    // });
-    // payment api end
-    // payment api end
-    // get data from booking
-    // get specific data from booking
+    // payment
+    app.patch('/product/pay', verifyJWT, verifyUser, async(req, res) => {
+      const id = req.query.id;
+      const filter = {productId: id}
+      const option = {upsert : true}
+      const updateDoc = {
+        $set: {
+          sold: true
+        }
+      }
+      // update on product collection 
+      const productFilter = {_id: ObjectId(id)}
+      const doc = {
+        $set: {
+          sold: true
+        }
+      }
+      const bookingProductResult = await productCollection.updateOne(productFilter, doc)
+
+      const bookingResult = await bookingCollection.updateOne(filter, updateDoc, option)
+      res.send(bookingResult)
+    })
+    // 
     app.get(
       "/products/bookings/:id",
       verifyJWT,
