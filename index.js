@@ -37,7 +37,8 @@ async function run() {
   try {
     const userCollection = client.db("furniture").collection("users");
     const productCollection = client.db("furniture").collection("products");
-    const bookingCollection = client.db('furniture').collection('booking')
+    const bookingCollection = client.db("furniture").collection("booking");
+    const paymentCollection = client.db("furniture").collection("payment");
     // =============================================================================== Verify admin ======================================
     const verifyAdmin = async (req, res, next) => {
       const decodedEmail = req.decoded.email;
@@ -56,6 +57,19 @@ async function run() {
       const queryUser = { email: decodedEmail };
       const user = await userCollection.findOne(queryUser);
       if (user.acc !== "Seller") {
+        return res.send({
+          message: "Forbidden access !!",
+        });
+      }
+      next();
+    };
+    // ================================================================================ api for JWT token=======================
+    // =============================================================================== Verify user ======================================
+    const verifyUser = async (req, res, next) => {
+      const decodedEmail = req.decoded.email;
+      const queryUser = { email: decodedEmail };
+      const user = await userCollection.findOne(queryUser);
+      if (user.acc !== "User") {
         return res.send({
           message: "Forbidden access !!",
         });
@@ -162,7 +176,7 @@ async function run() {
       verifyAdmin,
       async (req, res) => {
         const email = req.query.email;
-        const filter = {email};
+        const filter = { email };
         const options = { upsert: true };
         const updatedDocument = {
           $set: {
@@ -175,26 +189,78 @@ async function run() {
           options
         );
         // update product verification status
-        const productFinder = {sellerEmail: email}
-        const product = await productCollection.updateMany(productFinder, updatedDocument)
+        const productFinder = { sellerEmail: email };
+        const product = await productCollection.updateMany(
+          productFinder,
+          updatedDocument
+        );
         res.send(result);
       }
     );
     // ================================================================================ USER end ===================================================
     // ===================================================================== PRODUCT start =========================================================
+    // reporting api
+    app.patch("/products/report", verifyJWT, async (req, res) => {
+      const id = req.query.id;
+      const filter = { _id: ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          reported: true,
+        },
+      };
+      const result = await productCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+    // get reported items
+    app.get("/products/reported", verifyJWT, verifyAdmin, async (req, res) => {
+      const query = { reported: true };
+      const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
+    // reporting api
+    // payment api start
+    // payment api
+    // app.post("/create-payment-intent", async (req, res) => {
+    //   const booking = req.body;
+    //   const price = booking.price;
+    //   const amount = price * 100;
+    //   const paymentIntent = await stripe.paymentIntents.create({
+    //     currency: "usd",
+    //     amount: amount,
+    //     payment_method_types: ["card"],
+    //   });
+    //   res.send({
+    //     clientSecret: paymentIntent.client_secret,
+    //   });
+    // });
+    // payment api end
+    // payment api end
+    // get data from booking
+    // get specific data from booking
+    app.get(
+      "/products/bookings/:id",
+      verifyJWT,
+      verifyUser,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = { productId: id };
+        const result = await bookingCollection.findOne(query);
+        res.send(result);
+      }
+    );
     // get advertised product only
-    app.get('/products/advertised', async(req, res) => {
-      const query = {sold:false, ad:true}
-      const result = await productCollection.find(query).toArray()
-      res.send(result)
-    })
+    app.get("/products/advertised", async (req, res) => {
+      const query = { sold: false, ad: true };
+      const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
     // get category based product
-    app.get('/category/:id', verifyJWT, async (req, res) => {
+    app.get("/category/:id", verifyJWT, async (req, res) => {
       const id = parseInt(req.params.id);
-      const query = {categoryId: id, sold: false}
-      const result = await productCollection.find(query).toArray()
-      res.send(result)
-    })
+      const query = { categoryId: id, sold: false };
+      const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
     // get user based product
     app.get("/products", verifyJWT, verifySeller, async (req, res) => {
       const email = req.query.email;
@@ -239,11 +305,19 @@ async function run() {
     );
     // ===================================================================== PRODUCT end ===========================================================
     // ===================================================================== Product booking start =======================================================
+    // get booked data
+    app.get("/product/bookings", verifyJWT, verifyUser, async (req, res) => {
+      const email = req.query.email;
+      const query = { customerEmail: email };
+      const result = await bookingCollection.find(query).toArray();
+      res.send(result);
+    });
+    // book a product
     app.post("/product/bookings", verifyJWT, async (req, res) => {
       const booking = req.body;
       const id = booking.productId;
       const query = {
-        productId: booking.productId
+        productId: booking.productId,
       };
       const alreadyBooked = await bookingCollection.find(query).toArray();
       if (alreadyBooked.length) {
@@ -254,18 +328,22 @@ async function run() {
         });
       }
       const result = await bookingCollection.insertOne(booking);
-      // 
+      //
       const filter = { _id: ObjectId(id) };
       const options = { upsert: true };
       const updatedDocument = {
         $set: {
           booked: true,
-        }
+        },
       };
-      const mainCollection = await productCollection.updateOne(filter, updatedDocument, options)
+      const mainCollection = await productCollection.updateOne(
+        filter,
+        updatedDocument,
+        options
+      );
       res.send(result);
     });
-     // ===================================================================== Product booking end =======================================================
+    // ===================================================================== Product booking end =======================================================
   } finally {
   }
 }
